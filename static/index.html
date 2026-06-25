@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Homelab Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0f14;
+      --bg-card: #13161e;
+      --bg-hover: #1a1e2a;
+      --border: #1e2230;
+      --text-primary: #e8eaf0;
+      --text-secondary: #7b8099;
+      --text-muted: #454a5e;
+      --accent: #3b82f6;
+      --gain: #22c55e;
+      --loss: #ef4444;
+      --warn: #f59e0b;
+      --font: 'Inter', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: var(--font);
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 100;
+    }
+    .header-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--gain);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .brand-name { font-size: 15px; font-weight: 600; }
+    .brand-host {
+      font-size: 11px; font-family: var(--mono);
+      color: var(--text-secondary);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 2px 8px; border-radius: 4px;
+    }
+    .header-right {
+      display: flex; align-items: center; gap: 16px;
+      font-size: 12px; font-family: var(--mono);
+      color: var(--text-secondary);
+    }
+    .uptime-badge {
+      background: rgba(59,130,246,0.1);
+      border: 1px solid rgba(59,130,246,0.2);
+      color: var(--accent);
+      padding: 3px 10px; border-radius: 4px;
+      font-size: 11px;
+    }
+
+    /* Layout */
+    .main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    /* Metric cards row */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+    }
+    .metric-label {
+      font-size: 11px; font-weight: 500;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--text-secondary); margin-bottom: 8px;
+    }
+    .metric-value {
+      font-size: 28px; font-weight: 600;
+      font-family: var(--mono); letter-spacing: -0.02em;
+    }
+    .metric-sub {
+      font-size: 11px; color: var(--text-muted);
+      font-family: var(--mono); margin-top: 4px;
+    }
+
+    /* Progress bar */
+    .progress-wrap { margin-top: 10px; }
+    .progress-bar {
+      height: 4px; border-radius: 2px;
+      background: var(--border); overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; border-radius: 2px;
+      transition: width 0.6s ease;
+    }
+    .fill-green { background: var(--gain); }
+    .fill-yellow { background: var(--warn); }
+    .fill-red { background: var(--loss); }
+
+    /* Section */
+    .section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .section-header {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-title {
+      font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--text-secondary);
+    }
+    .section-count {
+      font-size: 11px; font-family: var(--mono);
+      color: var(--text-muted);
+    }
+
+    /* Containers grid */
+    .containers-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1px;
+      background: var(--border);
+    }
+    .container-card {
+      background: var(--bg-card);
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: background 0.1s;
+    }
+    .container-card:hover { background: var(--bg-hover); }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%; flex-shrink: 0;
+    }
+    .dot-running { background: var(--gain); animation: pulse 2s infinite; }
+    .dot-exited  { background: var(--loss); }
+    .dot-paused  { background: var(--warn); }
+    .dot-other   { background: var(--text-muted); }
+    .container-info { flex: 1; min-width: 0; }
+    .container-name {
+      font-size: 13px; font-weight: 500;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .container-image {
+      font-size: 11px; color: var(--text-muted);
+      font-family: var(--mono);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .container-status {
+      font-size: 11px; font-weight: 500;
+      font-family: var(--mono); flex-shrink: 0;
+    }
+    .status-running { color: var(--gain); }
+    .status-exited  { color: var(--loss); }
+    .status-paused  { color: var(--warn); }
+
+    /* Disks table */
+    .disk-table { width: 100%; border-collapse: collapse; }
+    .disk-table th {
+      padding: 10px 1.5rem;
+      text-align: left; font-size: 11px;
+      font-weight: 500; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--text-muted);
+    }
+    .disk-table th.num, .disk-table td.num { text-align: right; }
+    .disk-table td {
+      padding: 12px 1.5rem;
+      border-top: 1px solid var(--border);
+      font-family: var(--mono); font-size: 12px;
+    }
+    .disk-table tbody tr:hover { background: var(--bg-hover); }
+    .mountpoint { color: var(--accent); }
+    .device-text { color: var(--text-muted); font-size: 11px; }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 1.5rem;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-family: var(--mono);
+    }
+
+    .loading { color: var(--text-muted); padding: 2rem 1.5rem; text-align: center; }
+    .error-msg { color: var(--loss); padding: 1rem 1.5rem; font-size: 12px; font-family: var(--mono); }
+
+    @media (max-width: 600px) {
+      .main { padding: 1rem; }
+      .header { padding: 0 1rem; }
+      .brand-host { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header class="header">
+      <div class="header-inner">
+        <div class="brand">
+          <span class="brand-dot"></span>
+          <span class="brand-name">Homelab Monitor</span>
+          <span class="brand-host" id="hostname">servidor</span>
+        </div>
+        <div class="header-right">
+          <span class="uptime-badge">⏱ <span id="uptime">—</span></span>
+          <span id="last-updated">—</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+
+      <!-- System metrics -->
+      <div class="metrics-row" id="metrics-row">
+        <div class="metric-card">
+          <div class="metric-label">CPU</div>
+          <div class="metric-value" id="cpu-val">—</div>
+          <div class="metric-sub" id="cpu-sub">cargando...</div>
+          <div class="progress-wrap">
+            <div class="progress-bar"><div class="progress-fill" id="cpu-bar" style="width:0%"></div></div>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">RAM</div>
+          <div class="metric-value" id="ram-val">—</div>
+          <div class="metric-sub" id="ram-sub">cargando...</div>
+          <div class="progress-wrap">
+            <div class="progress-bar"><div class="progress-fill" id="ram-bar" style="width:0%"></div></div>
+          </div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Disco principal</div>
+          <div class="metric-value" id="disk-val">—</div>
+          <div class="metric-sub" id="disk-sub">cargando...</div>
+          <div class="progress-wrap">
+            <div class="progress-bar"><div class="progress-fill" id="disk-bar" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Containers -->
+      <div class="section">
+        <div class="section-header">
+          <span class="section-title">Contenedores Docker</span>
+          <span class="section-count" id="containers-count">—</span>
+        </div>
+        <div id="containers-wrap">
+          <div class="loading">Cargando contenedores...</div>
+        </div>
+      </div>
+
+      <!-- Disks -->
+      <div class="section">
+        <div class="section-header">
+          <span class="section-title">Almacenamiento</span>
+          <span class="section-count" id="disks-count">—</span>
+        </div>
+        <div id="disks-wrap">
+          <div class="loading">Cargando discos...</div>
+        </div>
+      </div>
+
+    </main>
+
+    <footer class="footer">
+      Homelab Monitor · auto-refresh cada 15s · FastAPI + Python
+    </footer>
+  </div>
+
+  <script>
+    const API = '';
+
+    function pctColor(p) {
+      if (p < 60) return 'fill-green';
+      if (p < 80) return 'fill-yellow';
+      return 'fill-red';
+    }
+
+    function dotClass(status) {
+      if (status === 'running') return 'dot-running';
+      if (status === 'exited')  return 'dot-exited';
+      if (status === 'paused')  return 'dot-paused';
+      return 'dot-other';
+    }
+
+    function statusClass(status) {
+      if (status === 'running') return 'status-running';
+      if (status === 'exited')  return 'status-exited';
+      if (status === 'paused')  return 'status-paused';
+      return '';
+    }
+
+    async function loadSystem() {
+      const res = await fetch(`${API}/api/system`);
+      const d = await res.json();
+
+      document.getElementById('uptime').textContent = d.uptime;
+      document.getElementById('last-updated').textContent =
+        new Date(d.timestamp).toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+
+      // CPU
+      document.getElementById('cpu-val').textContent = d.cpu_percent + '%';
+      document.getElementById('cpu-sub').textContent = '2 núcleos';
+      const cpuBar = document.getElementById('cpu-bar');
+      cpuBar.style.width = d.cpu_percent + '%';
+      cpuBar.className = 'progress-fill ' + pctColor(d.cpu_percent);
+
+      // RAM
+      document.getElementById('ram-val').textContent = d.ram_percent + '%';
+      document.getElementById('ram-sub').textContent = `${d.ram_used_gb} GB / ${d.ram_total_gb} GB`;
+      const ramBar = document.getElementById('ram-bar');
+      ramBar.style.width = d.ram_percent + '%';
+      ramBar.className = 'progress-fill ' + pctColor(d.ram_percent);
+
+      // Disk
+      document.getElementById('disk-val').textContent = d.disk_percent + '%';
+      document.getElementById('disk-sub').textContent = `${d.disk_used_gb} GB / ${d.disk_total_gb} GB`;
+      const diskBar = document.getElementById('disk-bar');
+      diskBar.style.width = d.disk_percent + '%';
+      diskBar.className = 'progress-fill ' + pctColor(d.disk_percent);
+    }
+
+    async function loadContainers() {
+      const res = await fetch(`${API}/api/containers`);
+      const d = await res.json();
+
+      if (d.error) {
+        document.getElementById('containers-wrap').innerHTML =
+          `<div class="error-msg">${d.error}</div>`;
+        return;
+      }
+
+      const containers = d.containers;
+      const running = containers.filter(c => c.status === 'running').length;
+      document.getElementById('containers-count').textContent =
+        `${running} corriendo · ${containers.length} total`;
+
+      document.getElementById('containers-wrap').innerHTML = `
+        <div class="containers-grid">
+          ${containers.map(c => `
+            <div class="container-card">
+              <span class="status-dot ${dotClass(c.status)}"></span>
+              <div class="container-info">
+                <div class="container-name">${c.name}</div>
+                <div class="container-image">${c.image}</div>
+              </div>
+              <span class="container-status ${statusClass(c.status)}">${c.status}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    async function loadDisks() {
+      const res = await fetch(`${API}/api/disks`);
+      const d = await res.json();
+
+      const disks = d.disks;
+      document.getElementById('disks-count').textContent = `${disks.length} particiones`;
+
+      document.getElementById('disks-wrap').innerHTML = `
+        <table class="disk-table">
+          <thead>
+            <tr>
+              <th>Punto de montaje</th>
+              <th>Dispositivo</th>
+              <th class="num">Total</th>
+              <th class="num">Usado</th>
+              <th class="num">Uso</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${disks.map(d => `
+              <tr>
+                <td class="mountpoint">${d.mountpoint}</td>
+                <td class="device-text">${d.device}</td>
+                <td class="num">${d.total_gb} GB</td>
+                <td class="num">${d.used_gb} GB</td>
+                <td class="num">
+                  <span style="color: ${d.percent > 80 ? 'var(--loss)' : d.percent > 60 ? 'var(--warn)' : 'var(--gain)'}">
+                    ${d.percent}%
+                  </span>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    async function loadAll() {
+      try {
+        await Promise.all([loadSystem(), loadContainers(), loadDisks()]);
+      } catch(e) {
+        console.error('Error cargando datos:', e);
+      }
+    }
+
+    loadAll();
+    setInterval(loadAll, 15000);
+  </script>
+</body>
+</html>
