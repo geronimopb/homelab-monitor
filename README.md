@@ -8,7 +8,8 @@ Built with **FastAPI** and **Vanilla JS** — lightweight enough to run on modes
 
 ## Live Dashboard
 
-![Dashboard preview](https://raw.githubusercontent.com/placeholder/homelab-monitor/main/docs/preview.png)
+<img width="1917" height="900" alt="image" src="https://github.com/user-attachments/assets/97b9aa76-dbcc-483e-863d-201d06399083" />
+
 
 > Auto-refreshes every 15 seconds. Accessible via Tailscale from any device.
 
